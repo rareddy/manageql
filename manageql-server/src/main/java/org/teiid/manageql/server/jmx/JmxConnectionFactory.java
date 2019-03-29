@@ -15,23 +15,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.teiid.manageql;
+package org.teiid.manageql.server.jmx;
 
 import javax.management.MBeanServerConnection;
 
-import org.teiid.resource.api.Connection;
+import org.teiid.resource.api.ConnectionFactory;
 
-public class MetricsConnection implements Connection {
+public class JmxConnectionFactory implements ConnectionFactory<JmxConnection> {
 
-	MBeanServerConnection mbsc;
-	
-	public MetricsConnection(MBeanServerConnection mbsc) {
-		this.mbsc = mbsc;
+	private final MBeanServerConnection serverConnection;
+
+	public JmxConnectionFactory(MBeanServerConnection serverConnection) {
+		this.serverConnection = serverConnection;
 	}
 
 	@Override
-	public void close() throws Exception {
-
+	public JmxConnection getConnection() throws Exception {
+		return new JmxConnection(serverConnection);
 	}
 
 }

@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.teiid.manageql;
+package org.teiid.manageql.server.jmx;
 
 import static org.teiid.language.visitor.SQLStringVisitor.getRecordName;
 
@@ -29,7 +29,7 @@ import org.teiid.language.LanguageObject;
 import org.teiid.language.visitor.HierarchyVisitor;
 import org.teiid.metadata.AbstractMetadataRecord;
 
-public class MetricsSelectVistor extends HierarchyVisitor {
+public class JmxSelectVistor extends HierarchyVisitor {
 	
 	List<String> columnNames = new ArrayList<String>();
 	

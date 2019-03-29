@@ -15,25 +15,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.teiid.manageql;
+package org.teiid.manageql.server.jmx;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.StringTokenizer;
 
 import javax.management.Attribute;
-import javax.management.AttributeList;
 import javax.management.InstanceNotFoundException;
 import javax.management.MalformedObjectNameException;
+import javax.management.ObjectInstance;
 import javax.management.ObjectName;
 import javax.management.ReflectionException;
 
 import org.teiid.language.NamedTable;
 import org.teiid.language.QueryExpression;
 import org.teiid.language.Select;
-import org.teiid.metadata.Column;
 import org.teiid.metadata.RuntimeMetadata;
 import org.teiid.metadata.Table;
 import org.teiid.translator.DataNotAvailableException;
@@ -42,22 +40,22 @@ import org.teiid.translator.ResultSetExecution;
 import org.teiid.translator.TranslatorException;
 
 @SuppressWarnings("unused")
-public class MetricsResultSetExecution implements ResultSetExecution {
+public class JmxResultSetExecution implements ResultSetExecution {
 
 	private Select command;
 	private ExecutionContext executionContext;
 	private RuntimeMetadata metadata;
-	private MetricsConnection connection;
-	private ListIterator<List<Attribute>> resultRows;
-	MetricsSelectVistor visitor;
+	private JmxConnection connection;
+	private ListIterator<ObjectName> resultRows;
+	JmxSelectVistor visitor;
 
-	public MetricsResultSetExecution(QueryExpression command, ExecutionContext executionContext,
-			RuntimeMetadata metadata, MetricsConnection connection) {
+	public JmxResultSetExecution(QueryExpression command, ExecutionContext executionContext,
+								 RuntimeMetadata metadata, JmxConnection connection) {
 		this.command = (Select) command;
 		this.executionContext = executionContext;
 		this.metadata = metadata;
 		this.connection = connection;
-		visitor = new MetricsSelectVistor();
+		visitor = new JmxSelectVistor();
 		visitor.visitNode(this.command);
 	}
 
@@ -74,27 +72,15 @@ public class MetricsResultSetExecution implements ResultSetExecution {
 		
 		NamedTable tblRef = (NamedTable) command.getFrom().get(0);
 		Table t = tblRef.getMetadataObject();
-		List<List<Attribute>> result = new ArrayList<List<Attribute>>();
+		List<ObjectName> result = new ArrayList<ObjectName>();
 		try {
-			String name = t.getProperty(MetricsTranslator.DOMAIN_NAME, false) + ":type=" + t.getName();
-			String beanNames = t.getProperty(MetricsTranslator.BEAN_NAMES, false);
-			if (beanNames == null) {
-				List<Attribute> la = this.connection.mbsc.getAttributes(new ObjectName(name), visitor.getColumnNames()).asList();
-				la.add(new Attribute(MetricsTranslator.BEANCOLUMNNAME, t.getName()));
-				result.add(la);
-			} else {
-				StringTokenizer st = new StringTokenizer(beanNames, ",");
-				while (st.hasMoreElements()) {
-					String beanName = st.nextToken();
-					List<Attribute> la = this.connection.mbsc.getAttributes(new ObjectName(name + ",name=" + beanName),
-							visitor.getColumnNames()).asList();
-					la.add(new Attribute(MetricsTranslator.BEANCOLUMNNAME, beanName));
-					result.add(la);
-				}
+			for (ObjectInstance oi : this.connection.mbsc.queryMBeans(new ObjectName(t.getName()), null)) {
+				result.add(oi.getObjectName());
 			}
-		} catch (InstanceNotFoundException | MalformedObjectNameException | ReflectionException | IOException e) {
+		} catch (IOException | MalformedObjectNameException e) {
 			throw new TranslatorException(e);
 		}
+
 		this.resultRows = result.listIterator();
 	}
 
@@ -104,15 +90,30 @@ public class MetricsResultSetExecution implements ResultSetExecution {
 			return null;
 		}
 		List<String> row = new ArrayList<String>();
-		List<Attribute> attributes = this.resultRows.next();
-		
+		ObjectName objectName = this.resultRows.next();
+
+		List<Attribute> attributes = null;
+		try {
+			attributes = this.connection.mbsc.getAttributes(objectName, visitor.getColumnNames()).asList();
+		} catch (IOException | InstanceNotFoundException | ReflectionException e) {
+			throw new TranslatorException(e);
+		}
+		attributes.add(new Attribute(JmxTranslator.OBJECT_NAME_COLUMN, objectName));
+
 		for (String colName : this.visitor.getColumnNames()) {
+			Object value = null;
 			for (Attribute a : attributes) {
 				if (a.getName().equalsIgnoreCase(colName)) {
-					row.add(a.getValue().toString());
+					value = a.getValue();
 				}
 			}
+			if( value == null ) {
+				row.add(null);
+			} else {
+				row.add(value.toString());
+			}
 		}
+
 		return row;
 	}
 }

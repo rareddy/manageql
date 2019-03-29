@@ -15,19 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.teiid.manageql;
+package org.teiid.manageql.server.jmx;
 
-public class Main {
+import javax.management.MBeanServerConnection;
 
-	public static void main(String[] args) {
-		ManageQLServer server = new ManageQLServer();
-		server.start();
-		while(true) {
-			try {
-				Thread.sleep(10000);
-			} catch (InterruptedException e) {
-				break;
-			}
-		}
+import org.teiid.resource.api.Connection;
+
+public class JmxConnection implements Connection {
+
+	MBeanServerConnection mbsc;
+	
+	public JmxConnection(MBeanServerConnection mbsc) {
+		this.mbsc = mbsc;
 	}
+
+	@Override
+	public void close() throws Exception {
+	}
+
 }
