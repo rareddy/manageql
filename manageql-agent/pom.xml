@@ -60,7 +60,11 @@
           <artifactId>teiid-api</artifactId>
           <version>${teiid.version}</version>
       </dependency>
-
+      <dependency>
+          <groupId>net.bytebuddy</groupId>
+          <artifactId>byte-buddy-agent</artifactId>
+          <version>1.9.12</version>
+      </dependency>
 
   </dependencies>
 
