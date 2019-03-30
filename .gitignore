@@ -25,3 +25,9 @@ hs_err_pid*
 .classpath
 .project
 .settings
+
+# IDE Files
+/.idea
+*.iml
+
+target
