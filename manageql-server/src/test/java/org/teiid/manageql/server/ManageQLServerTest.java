@@ -30,7 +30,6 @@ import org.junit.Test;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.NoOpStatementRewriter;
 import org.skife.jdbi.v2.tweak.ConnectionFactory;
-import org.teiid.manageql.server.ManageQLServer;
 
 /**
  * Unit test for simple App.
@@ -42,12 +41,12 @@ public class ManageQLServerTest {
     @Before
     public void before() {
         server = new ManageQLServer();
-        server.setPortNumber(0);
+        server.setPsqlPortNumber(0);
         server.start();
         dbi = new DBI(new ConnectionFactory() {
             @Override
             public Connection openConnection() throws SQLException {
-                return server.getDriver().connect("jdbc:teiid:manage", null);
+                return server.getDriver().connect("jdbc:teiid:manageql", null);
             }
         });
         dbi.setStatementRewriter(new NoOpStatementRewriter());

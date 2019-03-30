@@ -54,7 +54,7 @@ public class ManageQLServer extends EmbeddedServer {
 
         // start a socket for pg protocol
         sc.setHostAddress(InetAddress.getLoopbackAddress());
-        sc.setPortNumber(35432);
+        sc.setPortNumber(5432);
         sc.setProtocol(WireProtocol.pg);
         ec.addTransport(sc);
     }
@@ -65,7 +65,7 @@ public class ManageQLServer extends EmbeddedServer {
 
         // vdb to use the above metrics metadata as virtual database
         VDBMetaData vdb =  new VDBMetaData();
-        vdb.setName("manage");
+        vdb.setName("manageql");
         vdb.addModel(createJMXModel());
 
         try {
@@ -107,11 +107,11 @@ public class ManageQLServer extends EmbeddedServer {
         return serverConnection;
     }
 
-    public void setPortNumber(int port) {
+    public void setPsqlPortNumber(int port) {
         this.sc.setPortNumber(port);
     }
 
-    public int getPortNumber() {
+    public int getPsqlPortNumber() {
         return this.sc.getPortNumber();
     }
 }

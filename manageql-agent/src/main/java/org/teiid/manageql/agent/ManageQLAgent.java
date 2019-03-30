@@ -23,6 +23,8 @@ import java.util.function.Consumer;
 
 import org.teiid.manageql.server.ManageQLServer;
 
+import main.ManageQLConfig;
+
 
 public class ManageQLAgent {
 
@@ -33,7 +35,7 @@ public class ManageQLAgent {
      * Called when started via command line agent.
      */
     public static void premain(String agentArgs, Instrumentation instrumentation) {
-        ManageQLAgentConfig config = new ManageQLAgentConfig(agentArgs);
+        ManageQLConfig config = new ManageQLConfig(agentArgs);
         start(config);
     }
 
@@ -41,42 +43,46 @@ public class ManageQLAgent {
      * Called when dynamic attach is used.
      */
     public static void agentmain(String agentArgs, Instrumentation instrumentation) {
-        ManageQLAgentConfig config = new ManageQLAgentConfig(agentArgs);
-        if ("stop".equals(config.getProperty("mode"))) {
-            stop();
-        } else {
-            start(config);
+        try {
+            ManageQLConfig config = new ManageQLConfig(agentArgs);
+            if ("stop".equals(config.getProperty("mode"))) {
+                stop();
+            } else {
+                start(config);
+            }
+        } catch (Throwable e) {
+            e.printStackTrace();
         }
     }
 
-    private static void start(final ManageQLAgentConfig config) {
-        ManageQLServer server = new ManageQLServer();
-        configureInteger(config, "port", server::setPortNumber);
-        server.start();
-        System.setProperty(AGENT_KEY, "jdbc:postgresql://localhost:" + server.getPort(0) + "/manage");
+    synchronized private static void start(final ManageQLConfig config) {
+        if( server == null ) {
+            server = new ManageQLServer();
+            configureInteger(config, "psql-port", server::setPsqlPortNumber);
+            server.start();
+            String driverURL = "jdbc:postgresql://localhost:" + server.getPort(0) + "/manageql";
+            System.setProperty(AGENT_KEY, driverURL);
+            System.err.println("ManageQL agent started. You can connect to: "+driverURL);
+        }
     }
 
-    private static void configure(ManageQLAgentConfig config, String key, Consumer<String> target) {
+    private static void configure(ManageQLConfig config, String key, Consumer<String> target) {
         String value = config.getProperty(key);
         if( value !=null ) {
             target.accept(value);
         }
     }
 
-    private static void configureInteger(ManageQLAgentConfig config, String key, Consumer<Integer> target) {
+    private static void configureInteger(ManageQLConfig config, String key, Consumer<Integer> target) {
         configure(config, key, x->target.accept(Integer.parseInt(x)));
     }
 
-    private static void configure(ManageQLServer server, ManageQLAgentConfig config) {
-
-    }
-
-    private static void stop() {
-        try {
+    synchronized private static void stop() {
+        if( server !=null ) {
             server.stop();
+            server = null;
             System.clearProperty(AGENT_KEY);
-        } catch (RuntimeException exp) {
-            System.err.println("Could not stop Jolokia agent: " + exp);
+            System.err.println("ManageQL agent stopped");
         }
     }
 
