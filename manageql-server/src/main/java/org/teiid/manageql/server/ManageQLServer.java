@@ -17,8 +17,10 @@
  */
 package org.teiid.manageql.server;
 
+import java.io.InputStream;
 import java.lang.management.ManagementFactory;
 import java.net.InetAddress;
+import java.util.logging.LogManager;
 
 import javax.management.MBeanServerConnection;
 
@@ -42,9 +44,16 @@ public class ManageQLServer extends EmbeddedServer {
     EmbeddedConfiguration ec = new EmbeddedConfiguration();
     SocketConfiguration sc = new SocketConfiguration();
 
-    public ManageQLServer() {
-        System.setProperty("org.teiid.addPGMetadata", "false");
+    static {
+        try {
+            InputStream configFile = ManageQLServer.class.getResourceAsStream("/logging.properties");
+            LogManager.getLogManager().readConfiguration(configFile);
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
+    }
 
+    public ManageQLServer() {
         // configuration for Teiid
         ec.setMaxActivePlans(2);
         ec.setMaxAsyncThreads(1);
@@ -57,6 +66,8 @@ public class ManageQLServer extends EmbeddedServer {
         sc.setPortNumber(5432);
         sc.setProtocol(WireProtocol.pg);
         ec.addTransport(sc);
+
+        ec.setPreParser(new DynamicTableBuilder());
     }
 
     public void start() {
@@ -69,12 +80,12 @@ public class ManageQLServer extends EmbeddedServer {
         vdb.addModel(createJMXModel());
 
         try {
-			start(ec);
-			deployVDB(vdb, null);
-		} catch (VirtualDatabaseException | ConnectorManagerException | TranslatorException e) {
-			throw new IllegalStateException("failed to start managemeql server", e);
-		}
-	}
+            start(ec);
+            deployVDB(vdb, null);
+        } catch (VirtualDatabaseException | ConnectorManagerException | TranslatorException e) {
+            throw new IllegalStateException("failed to start managemeql server", e);
+        }
+    }
 
     private ModelMetaData createJMXModel() {
         ModelMetaData model = new ModelMetaData(){
