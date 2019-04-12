@@ -18,6 +18,7 @@
 package org.teiid.manageql.server.jmx;
 
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ListIterator;
@@ -28,7 +29,13 @@ import javax.management.MalformedObjectNameException;
 import javax.management.ObjectInstance;
 import javax.management.ObjectName;
 import javax.management.ReflectionException;
+import javax.management.openmbean.CompositeData;
+import javax.management.openmbean.TabularData;
 
+import org.teiid.core.types.DataTypeManager;
+import org.teiid.core.types.JsonType;
+import org.teiid.core.types.Transform;
+import org.teiid.core.types.TransformationException;
 import org.teiid.language.NamedTable;
 import org.teiid.language.QueryExpression;
 import org.teiid.language.Select;
@@ -91,7 +98,7 @@ public class JmxResultSetExecution implements ResultSetExecution {
         if (!this.resultRows.hasNext()) {
             return null;
         }
-        List<String> row = new ArrayList<String>();
+        List<Object> row = new ArrayList<Object>();
         ObjectName objectName = this.resultRows.next();
 
         List<Attribute> attributes = null;
@@ -112,10 +119,61 @@ public class JmxResultSetExecution implements ResultSetExecution {
             if( value == null ) {
                 row.add(null);
             } else {
-                row.add(value.toString());
+                Class<?> expectedClass = visitor.getColumnTypes().get(colName);
+                row.add(retrieveValue(value, expectedClass));
             }
         }
 
         return row;
     }
+
+    public Object retrieveValue(Object value, Class<?> expectedClass) throws TranslatorException {
+        if (value == null) {
+            return null;
+        }
+
+        if (value.getClass().equals(expectedClass)) {
+            return value;
+        }
+
+        if (value instanceof java.util.Date && expectedClass.equals(java.sql.Date.class)) {
+            return new java.sql.Date(((java.util.Date) value).getTime());
+        } else if (value instanceof java.util.Date && expectedClass.equals(java.sql.Timestamp.class)) {
+            return new java.sql.Timestamp(((java.util.Date) value).getTime());
+        } else if (value instanceof java.util.Date && expectedClass.equals(java.sql.Time.class)) {
+            return new java.sql.Time(((java.util.Date) value).getTime());
+        } else if (value instanceof String && expectedClass.equals(Character.class)) {
+            return Character.valueOf(((String)value).charAt(0));
+        } else if (value instanceof ObjectName && expectedClass.equals(String.class)) {
+            return ((ObjectName)value).getCanonicalName();
+        } else if (value.getClass().isArray()) {
+            if (value.getClass().getComponentType().equals(CompositeData.class)
+                    || value.getClass().getComponentType().equals(TabularData.class)) {
+                value = JmxJsonUtil.converToJson(value);
+            } else {
+                Object array = Array.newInstance(expectedClass.getComponentType(), Array.getLength(value));
+                for (int i = 0; i < Array.getLength(value); i++) {
+                    Array.set(array, i, retrieveValue(Array.get(value, i), expectedClass.getComponentType()));
+                }
+                return array;
+            }
+        } else if (value instanceof CompositeData && expectedClass.equals(JsonType.class)) {
+            value = JmxJsonUtil.converToJson(value);
+        } else if (value instanceof TabularData && expectedClass.equals(JsonType.class)) {
+            value = JmxJsonUtil.converToJson(value);
+
+        } else {
+            Transform transform = DataTypeManager.getTransform(value.getClass(), expectedClass);
+            if (transform != null) {
+                try {
+                    value = transform.transform(value, expectedClass);
+                } catch (TransformationException e) {
+                    throw new TranslatorException(e);
+                }
+            }
+        }
+        return value;
+    }
+
+
 }

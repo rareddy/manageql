@@ -27,6 +27,8 @@ import javax.management.MBeanInfo;
 import javax.management.MBeanServerConnection;
 import javax.management.ObjectName;
 import javax.management.ReflectionException;
+import javax.management.openmbean.CompositeData;
+import javax.management.openmbean.TabularData;
 
 import org.teiid.language.Call;
 import org.teiid.language.QueryExpression;
@@ -133,10 +135,66 @@ public class JmxTranslator extends ExecutionFactory<JmxConnectionFactory, JmxCon
         Table table = mf.getSchema().getTable(tableName);
         addOrUpdateCol(mf, table, OBJECT_NAME_COLUMN, "string");
         for (MBeanAttributeInfo attr : attrInfo) {
-            // TODO: correct the types with attr.getType()
-            addOrUpdateCol(mf, table, SQLStringVisitor.escapeSinglePart(attr.getName()), "string");
+            addOrUpdateCol(mf, table, SQLStringVisitor.escapeSinglePart(attr.getName()),
+                    getRuntimeType(attr.getType()));
         }
         return table;
+    }
+
+    protected static String getRuntimeType(String type) {
+        boolean array = false;
+        if (type.indexOf('.') != -1) {
+            Class<?> clazz = Object.class;
+            try {
+                clazz = Class.forName(type);
+            } catch (ClassNotFoundException e) {
+                // ignore and use Object.
+            }
+            if (clazz.isArray()) {
+                array = true;
+                clazz = clazz.getComponentType();
+            }
+
+            if (clazz.equals(ObjectName.class)) {
+                type = "string";
+            } else if (clazz.equals(CompositeData.class)) {
+                array = false;
+                type = "json";
+            } else if (clazz.equals(TabularData.class)) {
+                array = false;
+                type = "json";
+            } else {
+                type = TypeFacility.getDataTypeName(TypeFacility.getRuntimeType(clazz));
+            }
+        }
+        if (type.equalsIgnoreCase("int")) {
+            type = TypeFacility.getDataTypeName(TypeFacility.getRuntimeType(Integer.class));
+        } else if (type.equals("[J")) {
+            array = true;
+            type = "long";
+        } else if (type.equals("[I")) {
+            array = true;
+            type = "integer";
+        } else if (type.equals("[D")) {
+            array = true;
+            type = "double";
+        } else if (type.equals("[Z")) {
+            array = true;
+            type = "boolean";
+        } else if (type.equals("[B")) {
+            array = true;
+            type = "byte";
+        } else if (type.equals("[C")) {
+            array = true;
+            type = "char";
+        } else if (type.equals("[F")) {
+            array = true;
+            type = "float";
+        } else if (type.equals("[S")) {
+            array = true;
+            type = "short";
+        }
+        return array?type+"[]":type;
     }
 
     private void addOrUpdateCol(MetadataFactory mf, Table t, String colName, String sqlType) {
@@ -145,5 +203,4 @@ public class JmxTranslator extends ExecutionFactory<JmxConnectionFactory, JmxCon
             c.setSearchType(SearchType.Unsearchable);
         }
     }
-
 }

@@ -83,9 +83,9 @@ public class DynamicTableProcedureExecution implements ProcedureExecution {
                     if (attributes.contains(attr.getName())) {
                         continue;
                     }
-                    // TODO: correct the types with attr.getType()
+                    String type = JmxTranslator.getRuntimeType(attr.getType());
                     this.resultDDL.append(", ");
-                    this.resultDDL.append(SQLStringVisitor.escapeSinglePart(attr.getName())).append(" ").append("string");
+                    this.resultDDL.append(SQLStringVisitor.escapeSinglePart(attr.getName())).append(" ").append(type);
                     attributes.add(attr.getName());
                 }
             }

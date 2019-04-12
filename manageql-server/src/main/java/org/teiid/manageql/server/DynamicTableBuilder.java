@@ -22,9 +22,14 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+import javax.management.ObjectName;
+
 import org.teiid.CommandContext;
 import org.teiid.PreParser;
+import org.teiid.api.exception.query.QueryParserException;
+import org.teiid.core.TeiidRuntimeException;
 import org.teiid.core.util.StringUtil;
+import org.teiid.jdbc.TeiidSQLException;
 import org.teiid.query.parser.QueryParser;
 import org.teiid.query.sql.lang.Command;
 import org.teiid.query.sql.symbol.GroupSymbol;
@@ -43,9 +48,7 @@ public class DynamicTableBuilder implements PreParser {
             //so we need to prevent recursion (could use a sql comment instead)
             return command;
         }
-        if (StringUtil.indexOfIgnoreCase(command, "jmx") == -1) {
-            return command;
-        }
+
         try {
             PARSING.set(true);
             Command c = QueryParser.getQueryParser().parseCommand(command);
@@ -55,17 +58,27 @@ public class DynamicTableBuilder implements PreParser {
                     String name = g.getNonCorrelationName();
                     String nonQualifiedName = name.replace(".", "_");
                     //make sure it's a pattern
-                    if (!StringUtil.startsWithIgnoreCase(name, "jmx") || (!name.contains("*") && !name.contains("?"))) {
-                        //TODO: this requires the user to schema qualify - jmx."java,*" or using our lax naming as "jmx.java,*"
+                    if (!name.contains("*") && !name.contains("?")) {
                         continue;
                     }
+                    // if it is pattern, make sure it is valid pattern
+                    try {
+                        String objectName = name;
+                        if (StringUtil.startsWithIgnoreCase(name, "jmx.")) {
+                            objectName = objectName.substring(4);
+                        }
+                        new ObjectName(objectName);
+                    } catch (Exception e) {
+                        throw new TeiidRuntimeException("Invalid JMX pattern as table \"" + name +"\"");
+                    }
+
                     defineGroup(name, nonQualifiedName, conn);
                     command = command.replace(name, nonQualifiedName);
                 } catch (SQLException e) {
                     //ignore
                 }
             }
-        } catch (Exception e) {
+        } catch (TeiidSQLException | QueryParserException e) {
             //ignore
         } finally {
             PARSING.set(false);

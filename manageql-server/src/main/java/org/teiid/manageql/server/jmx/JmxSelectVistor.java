@@ -20,7 +20,9 @@ package org.teiid.manageql.server.jmx;
 import static org.teiid.language.visitor.SQLStringVisitor.getRecordName;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.teiid.language.ColumnReference;
 import org.teiid.language.DerivedColumn;
@@ -30,14 +32,19 @@ import org.teiid.language.visitor.HierarchyVisitor;
 import org.teiid.metadata.AbstractMetadataRecord;
 
 public class JmxSelectVistor extends HierarchyVisitor {
-	
-	List<String> columnNames = new ArrayList<String>();
-	
-    public String[] getColumnNames() {
-		return columnNames.toArray(new String[columnNames.size()]);
-	}
 
-	/**
+    private List<String> columnNames = new ArrayList<String>();
+    private Map<String, Class<?>> columnTypes = new HashMap<String, Class<?>>();
+
+    public Map<String, Class<?>> getColumnTypes() {
+        return columnTypes;
+    }
+
+    public String[] getColumnNames() {
+        return columnNames.toArray(new String[columnNames.size()]);
+    }
+
+    /**
      * Appends the string form of the LanguageObject to the current buffer.
      * @param obj the language object instance
      */
@@ -75,22 +82,25 @@ public class JmxSelectVistor extends HierarchyVisitor {
         }
     }
 
-	public String getColumnName(ColumnReference obj) {
-		String elemShortName = null;
-		AbstractMetadataRecord elementID = obj.getMetadataObject();
+    public String getColumnName(ColumnReference obj) {
+        String elemShortName = null;
+        AbstractMetadataRecord elementID = obj.getMetadataObject();
         if(elementID != null) {
             elemShortName = getRecordName(elementID);
         } else {
             elemShortName = obj.getName();
         }
-		return elemShortName;
-	}
+        return elemShortName;
+    }
 
-	@Override
-	public void visit(DerivedColumn obj) {
-		Expression teiidExpression = obj.getExpression();
-		if (teiidExpression instanceof ColumnReference) {
-			columnNames.add(getColumnName((ColumnReference)teiidExpression));
-		}
-	}
+    @Override
+    public void visit(DerivedColumn obj) {
+        Expression teiidExpression = obj.getExpression();
+        if (teiidExpression instanceof ColumnReference) {
+            ColumnReference cr = (ColumnReference)teiidExpression;
+            String name = getColumnName(cr);
+            columnNames.add(name);
+            columnTypes.put(name, cr.getType());
+        }
+    }
 }
