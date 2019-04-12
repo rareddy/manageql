@@ -28,10 +28,12 @@ import org.teiid.adminapi.Model.Type;
 import org.teiid.adminapi.impl.ModelMetaData;
 import org.teiid.adminapi.impl.SourceMappingMetadata;
 import org.teiid.adminapi.impl.VDBMetaData;
+import org.teiid.core.TeiidComponentException;
 import org.teiid.deployers.VirtualDatabaseException;
 import org.teiid.dqp.internal.datamgr.ConnectorManagerRepository.ConnectorManagerException;
 import org.teiid.manageql.server.jmx.JmxConnectionFactory;
 import org.teiid.manageql.server.jmx.JmxTranslator;
+import org.teiid.query.metadata.TransformationMetadata;
 import org.teiid.runtime.EmbeddedConfiguration;
 import org.teiid.runtime.EmbeddedServer;
 import org.teiid.translator.TranslatorException;
@@ -67,7 +69,7 @@ public class ManageQLServer extends EmbeddedServer {
         sc.setProtocol(WireProtocol.pg);
         ec.addTransport(sc);
 
-        ec.setPreParser(new DynamicTableBuilder());
+        ec.setPreParser(new DynamicTableBuilder(this));
     }
 
     public void start() {
@@ -88,9 +90,7 @@ public class ManageQLServer extends EmbeddedServer {
     }
 
     private ModelMetaData createJMXModel() {
-        ModelMetaData model = new ModelMetaData(){
-
-        };
+        ModelMetaData model = new ModelMetaData();
         model.setModelType(Type.PHYSICAL);
         model.setName("jmx");
 
@@ -124,5 +124,18 @@ public class ManageQLServer extends EmbeddedServer {
 
     public int getPsqlPortNumber() {
         return this.sc.getPortNumber();
+    }
+
+    boolean tableExists(String name) {
+        VDBMetaData vdb = getVDBRepository().getVDB("manageql", "1");
+        TransformationMetadata metadata = vdb.getAttachment(TransformationMetadata.class);
+        if (metadata != null) {
+            try {
+                return metadata.getGroupID(name) != null;
+            } catch (TeiidComponentException e) {
+                return false;
+            }
+        }
+        return false;
     }
 }

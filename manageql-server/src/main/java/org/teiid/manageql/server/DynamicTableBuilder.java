@@ -38,7 +38,12 @@ import org.teiid.query.sql.visitor.SQLStringVisitor;
 
 public class DynamicTableBuilder implements PreParser {
 
+    private ManageQLServer server;
     private static ThreadLocal<Boolean> PARSING = new ThreadLocal<>();
+
+    public DynamicTableBuilder(ManageQLServer server) {
+        this.server = server;
+    }
 
     @Override
     public String preParse(String command, CommandContext context) {
@@ -57,9 +62,16 @@ public class DynamicTableBuilder implements PreParser {
                 try {
                     String name = g.getNonCorrelationName();
                     String nonQualifiedName = name.replace(".", "_");
+                    if (StringUtil.startsWithIgnoreCase(name, "sys.")
+                            || StringUtil.startsWithIgnoreCase(name, "sysadmin.")
+                            || StringUtil.startsWithIgnoreCase(name, "pg_catalog.")) {
+                        continue;
+                    }
                     //make sure it's a pattern
                     if (!name.contains("*") && !name.contains("?")) {
-                        continue;
+                        if (this.server.tableExists(name)) {
+                            continue;
+                        }
                     }
                     // if it is pattern, make sure it is valid pattern
                     try {
