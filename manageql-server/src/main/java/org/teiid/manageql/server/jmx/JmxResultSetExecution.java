@@ -174,6 +174,4 @@ public class JmxResultSetExecution implements ResultSetExecution {
         }
         return value;
     }
-
-
 }
