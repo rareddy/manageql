@@ -45,14 +45,11 @@ public class JmxJsonUtil {
 
     private static JsonElement buildTabularData(TabularData data) {
         @SuppressWarnings("unchecked")
-        Map<Object, Object> mapdata = ((Map<Object, Object>)data);
-        JsonObject jo = new JsonObject();
-        for (Entry<Object, Object> entry : mapdata.entrySet()) {
-            String key = entry.getKey().toString();
-            Object value = entry.getValue();
-            jsonAdd(jo, key, value);
+        JsonArray ja = new JsonArray();
+        for (Object entry : data.values()) {
+            ja.add(build(entry));
         }
-        return jo;
+        return ja;
     }
 
     private static void jsonAdd(JsonObject jo, String key, Object value) {
